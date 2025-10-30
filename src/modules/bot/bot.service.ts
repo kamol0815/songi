@@ -21,7 +21,7 @@ import {
   TransactionStatus,
 } from '../../shared/database/models/transactions.model';
 import { BotInteractionStatsModel } from '../../shared/database/models/bot-interaction-stats.model';
-import { UZCARD_FREE_TRIAL_URL } from '../../shared/constants/bot-links.constant';
+import { UZCARD_FREE_TRIAL_BASE_URL } from '../../shared/constants/bot-links.constant';
 import { createReadStream, existsSync } from 'fs';
 import { join } from 'path';
 
@@ -852,7 +852,24 @@ ${expirationLabel} ${subscriptionEndDate}`;
       }
 
       const termsLink = this.subscriptionTermsLink;
-      const uzcardLink = UZCARD_FREE_TRIAL_URL;
+
+      const selectedService = ctx.session.selectedService ?? 'yulduz';
+      ctx.session.selectedService = selectedService;
+
+      const defaultPlan = await Plan.findOne({ selectedName: selectedService });
+      if (!defaultPlan) {
+        logger.error('Free trial plan not found for selectedService', {
+          selectedService,
+        });
+        await ctx.answerCallbackQuery(
+          "Obuna rejasi topilmadi. Iltimos, administrator bilan bog'laning.",
+          { show_alert: true },
+        );
+        return;
+      }
+
+      const uzcardBaseUrl = UZCARD_FREE_TRIAL_BASE_URL;
+      const uzcardLink = `${uzcardBaseUrl}?userId=${user._id}&planId=${defaultPlan._id}&selectedService=${selectedService}`;
 
       const keyboard = new InlineKeyboard()
         .url('📄 Foydalanish shartlari', termsLink)
@@ -1891,10 +1908,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
   private async selectedServiceChecker(ctx: BotContext) {
     const selectedService = ctx.session.selectedService;
 
-    if (selectedService === undefined) {
-      await ctx.answerCallbackQuery('Iltimos, avval xizmat turini tanlang.');
-      await this.showMainMenu(ctx);
-      return;
+    if (!selectedService) {
+      const defaultService = 'yulduz';
+      ctx.session.selectedService = defaultService;
+      return defaultService;
     }
 
     return selectedService;

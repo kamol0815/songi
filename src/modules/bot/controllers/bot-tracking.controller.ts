@@ -1,7 +1,7 @@
 import { Controller, Get, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { BotInteractionStatsModel } from '../../../shared/database/models/bot-interaction-stats.model';
-import { UZCARD_FREE_TRIAL_URL } from '../../../shared/constants/bot-links.constant';
+import { UZCARD_FREE_TRIAL_BASE_URL } from '../../../shared/constants/bot-links.constant';
 import { TrackableLinkType, verifyTrackingToken } from '../utils/interaction-tracking.util';
 import logger from '../../../shared/utils/logger';
 
@@ -28,7 +28,7 @@ export class BotTrackingController {
       await this.recordInteraction(payload.telegramId, { openedUzcard: true });
     }
 
-    res.redirect(UZCARD_FREE_TRIAL_URL);
+    res.redirect(UZCARD_FREE_TRIAL_BASE_URL);
   }
 
   private safeVerifyToken(token: string | undefined, expectedType: TrackableLinkType) {
