@@ -153,12 +153,12 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       if (success) {
         await this.revokeUserInviteLink(subscription, false);
 
-        const privateLink = await this.getPrivateLink();
-        subscription.activeInviteLink = privateLink.invite_link;
+        const inviteLink = await this.getPrivateLink();
+        subscription.activeInviteLink = inviteLink;
         await subscription.save();
 
         const keyboard = new InlineKeyboard()
-          .url("🔗 Kanalga kirish", privateLink.invite_link)
+          .url("🔗 Kanalga kirish", inviteLink)
           .row()
           .text("📊 Obuna holati", "check_status");
 
@@ -222,12 +222,12 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
       await this.revokeUserInviteLink(subscription, false);
 
-      const privateLink = await this.getPrivateLink();
-      subscription.activeInviteLink = privateLink.invite_link;
+      const inviteLink = await this.getPrivateLink();
+      subscription.activeInviteLink = inviteLink;
       await subscription.save();
 
       const keyboard = new InlineKeyboard()
-        .url("🔗 Kanalga kirish", privateLink.invite_link)
+        .url("🔗 Kanalga kirish", inviteLink)
         .row()
         .text("🔙 Asosiy menyu", "main_menu");
 
@@ -297,11 +297,11 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
       subscription.subscriptionType = 'onetime';
 
-      const privateLink = await this.getPrivateLink();
-      subscription.activeInviteLink = privateLink.invite_link;
+      const inviteLink = await this.getPrivateLink();
+      subscription.activeInviteLink = inviteLink;
       await subscription.save();
 
-      const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', privateLink.invite_link);
+      const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', inviteLink);
 
       let messageText =
         `🎉 Tabriklaymiz! To'lov muvaffaqiyatli amalga oshirildi!\n\n` +
@@ -371,11 +371,11 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
       await this.revokeUserInviteLink(subscription, false);
 
-      const privateLink = await this.getPrivateLink();
-      subscription.activeInviteLink = privateLink.invite_link;
+      const inviteLink = await this.getPrivateLink();
+      subscription.activeInviteLink = inviteLink;
       await subscription.save();
 
-      const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', privateLink.invite_link);
+      const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', inviteLink);
 
       const bonusEndFormatted = `${subscription.subscriptionEnd.getDate().toString().padStart(2, '0')}.${(subscription.subscriptionEnd.getMonth() + 1).toString().padStart(2, '0')}.${subscription.subscriptionEnd.getFullYear()}`;
 
@@ -418,11 +418,8 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     logger.info(`Selected service on handlePaymentSuccess: ${selectedService}`);
     try {
-      const plan = await Plan.findOne({ selectedName: selectedService });
-
-      if (!plan) {
-        return;
-      }
+      const serviceName = selectedService ?? 'yulduz';
+      const plan = await this.resolvePlanByService(serviceName);
 
       const subscription = await this.subscriptionService.createSubscription(
         userId,
@@ -434,10 +431,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
       await this.revokeUserInviteLink(subscription.user, false);
 
-      const privateLink = await this.getPrivateLink();
-      subscription.user.activeInviteLink = privateLink.invite_link;
+      const inviteLink = await this.getPrivateLink();
+      subscription.user.activeInviteLink = inviteLink;
       await subscription.user.save();
-      const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', privateLink.invite_link);
+      const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', inviteLink);
 
       // if (fiscalQr) {
       //   keyboard.row().url("🧾 Chekni ko'rish", fiscalQr);
@@ -457,7 +454,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
       await UserModel.updateOne(
         { telegramId: telegramId },
-        { $set: { subscribedTo: selectedService } },
+        { $set: { subscribedTo: serviceName } },
       );
 
       const user1 = await UserModel.findOne({
@@ -536,10 +533,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
           provider as 'uzcard' | 'payme' | 'click',
         );
       } else {
-        await ctx.answerCallbackQuery(
-          "Noma'lum to'lov turi tanlandi.",
-          { show_alert: true },
-        );
+        await ctx.answerCallbackQuery({
+          text: "Noma'lum to'lov turi tanlandi.",
+          show_alert: true,
+        });
       }
       return;
     }
@@ -805,12 +802,12 @@ ${expirationLabel} ${subscriptionEndDate}`;
       if (subscription.isActive) {
         await this.revokeUserInviteLink(subscription, false);
 
-        const privateLink = await this.getPrivateLink();
-        subscription.activeInviteLink = privateLink.invite_link;
+        const inviteLink = await this.getPrivateLink();
+        subscription.activeInviteLink = inviteLink;
         await subscription.save();
 
         keyboard.row();
-        keyboard.url('🔗 Kanalga kirish', privateLink.invite_link);
+        keyboard.url('🔗 Kanalga kirish', inviteLink);
       } else {
         keyboard.text("🎯 Qayta obuna bo'lish", 'subscribe');
       }
@@ -854,20 +851,8 @@ ${expirationLabel} ${subscriptionEndDate}`;
 
       const termsLink = this.subscriptionTermsLink;
 
-      const selectedService = ctx.session.selectedService ?? 'yulduz';
-      ctx.session.selectedService = selectedService;
-
-      const defaultPlan = await Plan.findOne({ selectedName: selectedService });
-      if (!defaultPlan) {
-        logger.error('Free trial plan not found for selectedService', {
-          selectedService,
-        });
-        await ctx.answerCallbackQuery(
-          "Obuna rejasi topilmadi. Iltimos, administrator bilan bog'laning.",
-          { show_alert: true },
-        );
-        return;
-      }
+      const selectedService = await this.selectedServiceChecker(ctx);
+      const defaultPlan = await this.resolvePlanByService(selectedService);
 
       const uzcardBaseUrl = UZCARD_FREE_TRIAL_BASE_URL;
       const uzcardLink = `${uzcardBaseUrl}?userId=${user._id}&planId=${defaultPlan._id}&selectedService=${selectedService}`;
@@ -973,10 +958,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
 
         await this.revokeUserInviteLink(subscription, false);
 
-        const privateLink = await this.getPrivateLink();
-        subscription.activeInviteLink = privateLink.invite_link;
+        const inviteLink = await this.getPrivateLink();
+        subscription.activeInviteLink = inviteLink;
         await subscription.save();
-        const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', privateLink.invite_link);
+        const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', inviteLink);
 
         const messageText =
           `🎉 Tabriklaymiz! Siz muvaffaqiyatli obuna bo'ldingiz!\n\n` +
@@ -1014,29 +999,74 @@ ${expirationLabel} ${subscriptionEndDate}`;
     }
   }
 
-  private async getPrivateLink() {
+  private async getPrivateLink(): Promise<string> {
     try {
-      logger.info(
-        'Generating private channel invite link with channelId: ',
-        config.CHANNEL_ID,
-      );
-      const expireAt = Math.floor(Date.now() / 1000) + 10 * 60; // 10 daqiqa amal qiladi
-      const link = await this.bot.api.createChatInviteLink(
-        config.CHANNEL_ID,
-        {
-          expire_date: expireAt,
-          creates_join_request: true,
-        },
-      );
-      if (!link) {
-        throw new Error('Invite link generation returned empty result');
+      const expireAt = Math.floor(Date.now() / 1000) + 10 * 60;
+
+      try {
+        const link = await this.bot.api.createChatInviteLink(
+          config.CHANNEL_ID,
+          {
+            expire_date: expireAt,
+            creates_join_request: true,
+          },
+        );
+
+        if (link?.invite_link) {
+          return link.invite_link;
+        }
+
+        logger.warn('Generated invite link without invite_link field', {
+          link,
+        });
+      } catch (createError) {
+        logger.warn('Failed to create expiring invite link, falling back', {
+          error: createError,
+        });
       }
-      logger.info('Private channel invite link:', link.invite_link);
-      return link;
+
+      const fallbackLink = await this.bot.api.exportChatInviteLink(
+        config.CHANNEL_ID,
+      );
+
+      if (!fallbackLink) {
+        throw new Error('Exported invite link was empty');
+      }
+
+      return fallbackLink;
     } catch (error) {
-      logger.error('Error generating channel invite link:', error);
+      logger.error('Error generating channel invite link', { error });
       throw error;
     }
+  }
+
+  private async resolvePlanByService(
+    selectedService: string,
+  ): Promise<IPlanDocument> {
+    let plan = await Plan.findOne({ selectedName: selectedService }).exec();
+    if (plan) {
+      return plan;
+    }
+
+    const basePlan = await Plan.findOne({ name: 'Basic' }).exec();
+
+    const planPayload: Record<string, unknown> = {
+      name: basePlan?.name ?? 'Basic',
+      selectedName: selectedService,
+      duration: basePlan?.duration ?? 30,
+      price: basePlan?.price ?? 5555,
+    };
+
+    if (basePlan?.user) {
+      planPayload.user = basePlan.user;
+    }
+
+    plan = await Plan.create(planPayload);
+    logger.warn('Created fallback plan for service', {
+      selectedService,
+      planId: plan._id,
+    });
+    return plan;
   }
 
   private async handlePaymeSubscriptionUnavailable(
@@ -1208,15 +1238,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
 
       const selectedService = await this.selectedServiceChecker(ctx);
 
-      const plan = await Plan.findOne({ selectedName: selectedService });
-      if (!plan) {
-        logger.error(`No plan found with selectedService: ${selectedService}`);
-        await ctx.answerCallbackQuery(
-          "To'lov rejasi topilmadi. Iltimos, administrator bilan bog'laning.",
-          { show_alert: true },
-        );
-        return;
-      }
+      const plan = await this.resolvePlanByService(selectedService);
 
       ctx.session.pendingOnetimePlanId = plan._id.toString();
 
@@ -1308,15 +1330,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
   ) {
     const selectedService = await this.selectedServiceChecker(ctx);
 
-    const plan = await Plan.findOne({ selectedName: selectedService });
-
-    if (!plan) {
-      await ctx.answerCallbackQuery({
-        text: "Obuna rejasi topilmadi. Iltimos, qayta urinib ko'ring.",
-        show_alert: true,
-      } as any);
-      return new InlineKeyboard().text('🔙 Orqaga', 'back_to_payment_types');
-    }
+    const plan = await this.resolvePlanByService(selectedService);
 
     const clickUrl =
       process.env.BASE_CLICK_URL +
@@ -1390,41 +1404,32 @@ ${expirationLabel} ${subscriptionEndDate}`;
     const telegramId = ctx.from?.id;
 
     if (!telegramId) {
-      await ctx.answerCallbackQuery(
-        "Foydalanuvchi ma'lumotlari topilmadi. Iltimos, qayta urinib ko'ring.",
-        { show_alert: true },
-      );
+      await ctx.answerCallbackQuery({
+        text: "Foydalanuvchi ma'lumotlari topilmadi. Iltimos, qayta urinib ko'ring.",
+        show_alert: true,
+      });
       return;
     }
 
     const user = await UserModel.findOne({ telegramId }).exec();
 
     if (!user) {
-      await ctx.answerCallbackQuery(
-        "Foydalanuvchi ma'lumotlari topilmadi. Iltimos, qayta boshlang.",
-        { show_alert: true },
-      );
+      await ctx.answerCallbackQuery({
+        text: "Foydalanuvchi ma'lumotlari topilmadi. Iltimos, qayta boshlang.",
+        show_alert: true,
+      });
       return;
     }
 
     if (this.userHasActiveSubscription(user)) {
-      await ctx.answerCallbackQuery(
-        'Sizda allaqachon faol obuna mavjud. Yangi to‘lov talab qilinmaydi.',
-        { show_alert: true },
-      );
+      await ctx.answerCallbackQuery({
+        text: 'Sizda allaqachon faol obuna mavjud. Yangi to‘lov talab qilinmaydi.',
+        show_alert: true,
+      });
       return;
     }
 
-    const selectedService = ctx.session.selectedService;
-
-    if (!selectedService) {
-      await ctx.answerCallbackQuery(
-        'Iltimos, avval xizmat turini tanlang.',
-        { show_alert: true },
-      );
-      await this.showMainMenu(ctx);
-      return;
-    }
+    const selectedService = await this.selectedServiceChecker(ctx);
 
     let plan: IPlanDocument | null = null;
 
@@ -1433,14 +1438,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
     }
 
     if (!plan) {
-      plan = await Plan.findOne({ selectedName: selectedService }).exec();
-      if (!plan) {
-        await ctx.answerCallbackQuery(
-          "To'lov rejasi topilmadi. Iltimos, administrator bilan bog'laning.",
-          { show_alert: true },
-        );
-        return;
-      }
+      plan = await this.resolvePlanByService(selectedService);
       ctx.session.pendingOnetimePlanId = plan._id.toString();
     }
 
@@ -1451,10 +1449,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
       case 'uzcard': {
         const baseUrl = process.env.BASE_UZCARD_ONETIME_URL;
         if (!baseUrl) {
-          await ctx.answerCallbackQuery(
-            "Uzcard to'lov havolasi sozlanmagan. Iltimos, administrator bilan bog'laning.",
-            { show_alert: true },
-          );
+          await ctx.answerCallbackQuery({
+            text: "Uzcard to'lov havolasi sozlanmagan. Iltimos, administrator bilan bog'laning.",
+            show_alert: true,
+          });
           return;
         }
         redirectUrl = `${baseUrl}/?userId=${userId}&planId=${plan._id}&selectedService=${selectedService}`;
@@ -1478,18 +1476,18 @@ ${expirationLabel} ${subscriptionEndDate}`;
         break;
       }
       default:
-        await ctx.answerCallbackQuery(
-          "Noma'lum to'lov turi tanlandi.",
-          { show_alert: true },
-        );
+        await ctx.answerCallbackQuery({
+          text: "Noma'lum to'lov turi tanlandi.",
+          show_alert: true,
+        });
         return;
     }
 
     if (!redirectUrl) {
-      await ctx.answerCallbackQuery(
-        "To'lov havolasi tayyorlanmadi. Iltimos, administrator bilan bog'laning.",
-        { show_alert: true },
-      );
+      await ctx.answerCallbackQuery({
+        text: "To'lov havolasi tayyorlanmadi. Iltimos, administrator bilan bog'laning.",
+        show_alert: true,
+      });
       return;
     }
 
@@ -1850,10 +1848,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
 
         await this.revokeUserInviteLink(subscription, false);
 
-        const privateLink = await this.getPrivateLink();
-        subscription.activeInviteLink = privateLink.invite_link;
+        const inviteLink = await this.getPrivateLink();
+        subscription.activeInviteLink = inviteLink;
         await subscription.save();
-        const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', privateLink.invite_link);
+        const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', inviteLink);
 
         let messageText =
           `🎉 DEV TEST: Muvaffaqiyatli obuna bo'ldingiz!\n\n` +
@@ -1899,14 +1897,15 @@ ${expirationLabel} ${subscriptionEndDate}`;
     }
   }
 
-  private async selectedServiceChecker(ctx: BotContext) {
-    const selectedService = ctx.session.selectedService;
+  private async selectedServiceChecker(ctx: BotContext): Promise<string> {
+    let selectedService = ctx.session.selectedService;
 
     if (!selectedService) {
-      const defaultService = 'yulduz';
-      ctx.session.selectedService = defaultService;
-      return defaultService;
+      selectedService = 'yulduz';
+      ctx.session.selectedService = selectedService;
     }
+
+    await this.resolvePlanByService(selectedService);
 
     return selectedService;
   }
