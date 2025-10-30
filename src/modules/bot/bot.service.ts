@@ -21,6 +21,7 @@ import {
   TransactionStatus,
 } from '../../shared/database/models/transactions.model';
 import { BotInteractionStatsModel } from '../../shared/database/models/bot-interaction-stats.model';
+import { UZCARD_FREE_TRIAL_URL } from '../../shared/constants/bot-links.constant';
 import { createReadStream, existsSync } from 'fs';
 import { join } from 'path';
 
@@ -569,8 +570,6 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       main_menu: this.showMainMenu.bind(this),
       confirm_subscribe_basic: this.confirmSubscription.bind(this),
       agree_terms: this.handleAgreement.bind(this),
-      open_terms: this.handleOpenTerms.bind(this),
-      open_uzcard_free_trial: this.handleOpenUzcardFreeTrial.bind(this),
 
       not_supported_international: async (ctx) => {
         await ctx.answerCallbackQuery({
@@ -855,10 +854,13 @@ ${expirationLabel} ${subscriptionEndDate}`;
         });
       }
 
+      const termsLink = this.subscriptionTermsLink;
+      const uzcardLink = UZCARD_FREE_TRIAL_URL;
+
       const keyboard = new InlineKeyboard()
-        .text('📄 Foydalanish shartlari', 'open_terms')
+        .url('📄 Foydalanish shartlari', termsLink)
         .row()
-        .text('💳 Uzcard/Humo bepul obunasi', 'open_uzcard_free_trial');
+        .url('💳 Uzcard/Humo bepul obunasi', uzcardLink);
 
       const termsMessage =
         '📜 <b>Foydalanish shartlari va bepul sinov tartibi:</b>\n\n' +
@@ -898,41 +900,6 @@ ${expirationLabel} ${subscriptionEndDate}`;
       await ctx.answerCallbackQuery(
         "Obuna turlarini ko'rsatishda xatolik yuz berdi.",
       );
-    }
-  }
-
-  private async handleOpenTerms(ctx: BotContext): Promise<void> {
-    try {
-      await this.recordInteraction(ctx.from?.id, { openedTerms: true });
-      await ctx.answerCallbackQuery({ url: this.subscriptionTermsLink });
-    } catch (error) {
-      logger.warn('Failed to open subscription terms link', {
-        telegramId: ctx.from?.id,
-        error,
-      });
-      await ctx.answerCallbackQuery({
-        text: "Havolani ochishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
-        show_alert: true,
-      } as any);
-    }
-  }
-
-  private async handleOpenUzcardFreeTrial(ctx: BotContext): Promise<void> {
-    const url =
-      'http://213.230.110.176:8989/api/uzcard-api/add-card?userId=6903055c1bde064a2116d374&planId=690242ce22065d7de5a49af0&selectedService=yulduz';
-
-    try {
-      await this.recordInteraction(ctx.from?.id, { openedUzcard: true });
-      await ctx.answerCallbackQuery({ url });
-    } catch (error) {
-      logger.warn('Failed to open Uzcard free trial link', {
-        telegramId: ctx.from?.id,
-        error,
-      });
-      await ctx.answerCallbackQuery({
-        text: "Havolani ochishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
-        show_alert: true,
-      } as any);
     }
   }
 
