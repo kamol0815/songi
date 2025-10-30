@@ -976,10 +976,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
         const privateLink = await this.getPrivateLink();
         subscription.activeInviteLink = privateLink.invite_link;
         await subscription.save();
-        const keyboard = new InlineKeyboard()
-          .url('🔗 Kanalga kirish', privateLink.invite_link)
-          .row()
-          .text('🔙 Asosiy menyu', 'main_menu');
+        const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', privateLink.invite_link);
 
         const messageText =
           `🎉 Tabriklaymiz! Siz muvaffaqiyatli obuna bo'ldingiz!\n\n` +
