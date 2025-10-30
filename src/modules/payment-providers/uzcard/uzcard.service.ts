@@ -26,6 +26,7 @@ import { FiscalDto } from './dto/uzcard-payment.dto';
 import { getFiscal } from '../../../shared/utils/get-fiscal';
 import { uzcardAuthHash } from '../../../shared/utils/hashing/uzcard-auth-hash';
 import { AddCardDto } from './dto/add-card.dto';
+import { DeleteCardDto } from './dto/request/delete-card.dto';
 
 export interface ErrorResponse {
   success: false;
@@ -178,6 +179,71 @@ export class UzCardApiService {
         message: "Serverda xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.",
       };
     }
+  }
+
+  async deleteCard(dto: DeleteCardDto) {
+    const headers = this.getHeaders();
+
+    const card = await UserCardsModel.findOne({
+      userId: dto.userId,
+      cardType: CardType.UZCARD,
+    });
+
+    if (!card) {
+      logger.warn(`No Uzcard card found for user ${dto.userId} in deleteCard`);
+      return {
+        success: false,
+        errorCode: 'not_found',
+        message: 'Karta topilmadi yoki allaqachon o\'chirilgan.',
+      };
+    }
+
+    const uzcardId = dto.uzcardUserCardId ?? card.UzcardIdForDeleteCard;
+
+    if (!uzcardId) {
+      logger.error(`Missing UzcardIdForDeleteCard for user ${dto.userId}`);
+      return {
+        success: false,
+        errorCode: 'missing_external_id',
+        message: 'Kartani o\'chirish uchun kerakli ma\'lumot topilmadi.',
+      };
+    }
+
+    try {
+      await axios.delete(`${this.baseUrl}/UserCard/deleteUserCard`, {
+        headers,
+        params: { userCardId: uzcardId },
+      });
+    } catch (error) {
+      // @ts-ignore
+      const status = error?.response?.status;
+      // @ts-ignore
+      const errorCode = error?.response?.data?.error?.errorCode;
+
+      logger.error('Failed to delete card from Uzcard API', {
+        userId: dto.userId,
+        uzcardId,
+        status,
+        errorCode,
+      });
+
+      return {
+        success: false,
+        errorCode: errorCode?.toString() ?? 'delete_failed',
+        message:
+          // @ts-ignore
+          error?.response?.data?.error?.errorMessage ||
+          'Kartani tizimdan o\'chirishda xatolik yuz berdi.',
+      };
+    }
+
+    await UserCardsModel.deleteOne({ _id: card._id });
+    logger.info(`Uzcard card deleted for user ${dto.userId}`);
+
+    return {
+      success: true,
+      message: 'Karta muvaffaqiyatli o\'chirildi.',
+    };
   }
 
   /**

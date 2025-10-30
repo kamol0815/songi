@@ -10,6 +10,7 @@ import {
 import { AddCardDto } from './dto/add-card.dto';
 import { AddCardResponseDto } from './dto/response/add-card-response.dto';
 import { ConfirmCardDto } from './dto/request/confirm-card.dto';
+import { DeleteCardDto } from './dto/request/delete-card.dto';
 import { ErrorResponse, UzCardApiService } from './uzcard.service';
 
 @Controller('uzcard-api')
@@ -80,5 +81,10 @@ export class UzCardApiController {
     @Query('userId') userId: string,
   ) {
     return await this.uzCardApiService.resendCode(session, userId);
+  }
+
+  @Post('/delete-card')
+  async deleteCard(@Body() requestBody: DeleteCardDto) {
+    return await this.uzCardApiService.deleteCard(requestBody);
   }
 }
