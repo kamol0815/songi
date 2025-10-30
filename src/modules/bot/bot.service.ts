@@ -878,7 +878,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
         .url('✅ Obuna bo\'lish💳 Uzcard/Humo ', uzcardLink);
 
       const termsMessage =
-        "Suniy intelekt tarafidan munajjimlar bashoratiga obuna bo'ling va 30 kun davomida mutlaqo bepul foydalaning. Obuna boshlashdan oldin to‘liq ofertani e'tibor bilan o‘qib chiqing. 30 kun bepul foydalanish muddati tugagach, oylik to‘lov 5 555 so‘mni tashkil etadi.\n\n" +
+        "Suniy intelekt tarafidan munajjimlar bashoratiga obuna bo'ling va 30 kun davomida mutlaqo bepul foydalaning. Obuna bo'lishdan oldin to‘liq ofertani e'tibor bilan o‘qib chiqing. 30 kun bepul foydalanish muddati tugagach, oylik to‘lov 5 555 so‘mni tashkil etadi.\n\n" +
         'Obunani istalgan vaqtda bu <a href="http://213.230.110.176:8989/api/subscription/cancel?token=eyJ0ZWxlZ3JhbUlkIjoiNzc4OTQ0NTg3NiJ9.j8Ni575rvxZxyBaIlwDwEI9n3yRXd3536HFOXWic4_4">havola</a> orqali bekor qilishingiz mumkin.\n\n' +
         "⬇️ Tugmalar orqali shartlarni o'qing va Uzcard/Humo kartalarini kiritish orqali obunani faollashtiring.";
 
