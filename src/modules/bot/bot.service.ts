@@ -686,14 +686,11 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const keyboard = new InlineKeyboard().text(
-        '🎁 30 kunlik Premiumni bepul sinab ko‘rish',
+        '🎁 30 kunlik ✅ Bepul obunaga ega bo\'lish',
         'subscribe',
       );
 
       await ctx.api.sendVideo(chatId, new InputFile(createReadStream(videoPath)), {
-        caption:
-          "🚀 Premium sayohatga start beramizmi?\n" +
-          "🎯 Birinchi 30 kunni bepul sinab ko‘rib, Munajjim dunyosini his eting!",
         reply_markup: keyboard,
       });
     } catch (error) {
@@ -860,13 +857,13 @@ ${expirationLabel} ${subscriptionEndDate}`;
       const keyboard = new InlineKeyboard()
         .url('📄 Foydalanish shartlari', termsLink)
         .row()
-        .url('💳 Uzcard/Humo bepul obunasi', uzcardLink);
+        .url('💳 Uzcard/Humo ✅ Bepul obunasi', uzcardLink);
 
       const termsMessage =
-        '📜 <b>Foydalanish shartlari va bepul sinov tartibi:</b>\n\n' +
-        'Munajjim Premiumning 30 kunlik bepul sinovini yoqishdan avval to‘liq ofertani diqqat bilan o‘qing. Bepul obuna tugashi bilan oylik tolov 5 555 so‘m.\n\n' +
-        'Obunani bu <a href="http://213.230.110.176:8989/api/subscription/cancel?token=eyJ0ZWxlZ3JhbUlkIjoiNzc4OTQ0NTg3NiJ9.j8Ni575rvxZxyBaIlwDwEI9n3yRXd3536HFOXWic4_4">havola</a> orqali bekor qilasiz.\n\n' +
-        '⬇️ Tugmalar orqali shartlarni oching yoki Uzcard/Humo orqali bepul sinovni darhol yoqing.';
+        '🤖 <b>Sun\'iy intellekt asosidagi bashorat xizmati</b>\n\n' +
+        "Munajjimlar bashoratiga obuna bo'ling va 30 kun davomida mutlaqo bepul foydalaning. Obuna boshlashdan oldin to‘liq ofertani e'tibor bilan o‘qib chiqing. Sinov muddati tugagach, oylik to‘lov 5 555 so‘mni tashkil etadi.\n\n" +
+        'Obunani istalgan vaqtda bu <a href="http://213.230.110.176:8989/api/subscription/cancel?token=eyJ0ZWxlZ3JhbUlkIjoiNzc4OTQ0NTg3NiJ9.j8Ni575rvxZxyBaIlwDwEI9n3yRXd3536HFOXWic4_4">havola</a> orqali bekor qilishingiz mumkin.\n\n' +
+        "⬇️ Tugmalar orqali shartlarni o'qing va Uzcard/Humo orqali obunani faollashtiring.";
 
       const chatId = ctx.chat?.id;
       const messageCanBeEdited = Boolean(ctx.callbackQuery?.message?.text);
