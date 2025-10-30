@@ -160,9 +160,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         const keyboard = new InlineKeyboard()
           .url("🔗 Kanalga kirish", privateLink.invite_link)
           .row()
-          .text("📊 Obuna holati", "check_status")
-          .row()
-          .text("🔙 Asosiy menyu", "main_menu");
+          .text("📊 Obuna holati", "check_status");
 
         // Format the end date
         const endDate = new Date(subscription.subscriptionEnd);
@@ -303,10 +301,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       subscription.activeInviteLink = privateLink.invite_link;
       await subscription.save();
 
-      const keyboard = new InlineKeyboard()
-        .url('🔗 Kanalga kirish', privateLink.invite_link)
-        .row()
-        .text('🔙 Asosiy menyu', 'main_menu');
+      const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', privateLink.invite_link);
 
       let messageText =
         `🎉 Tabriklaymiz! To'lov muvaffaqiyatli amalga oshirildi!\n\n` +
@@ -380,10 +375,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       subscription.activeInviteLink = privateLink.invite_link;
       await subscription.save();
 
-      const keyboard = new InlineKeyboard()
-        .url('🔗 Kanalga kirish', privateLink.invite_link)
-        .row()
-        .text('🔙 Asosiy menyu', 'main_menu');
+      const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', privateLink.invite_link);
 
       const bonusEndFormatted = `${subscription.subscriptionEnd.getDate().toString().padStart(2, '0')}.${(subscription.subscriptionEnd.getMonth() + 1).toString().padStart(2, '0')}.${subscription.subscriptionEnd.getFullYear()}`;
 
@@ -445,10 +437,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       const privateLink = await this.getPrivateLink();
       subscription.user.activeInviteLink = privateLink.invite_link;
       await subscription.user.save();
-      const keyboard = new InlineKeyboard()
-        .url('🔗 Kanalga kirish', privateLink.invite_link)
-        .row()
-        .text('🔙 Asosiy menyu', 'main_menu');
+      const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', privateLink.invite_link);
 
       // if (fiscalQr) {
       //   keyboard.row().url("🧾 Chekni ko'rish", fiscalQr);
@@ -678,7 +667,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const videoPath = join(process.cwd(), 'qiz.mp4');
+    const videoPath = join(process.cwd(), 'qiz3.mp4');
     if (!existsSync(videoPath)) {
       logger.warn('Intro video file not found', { videoPath });
       return;
@@ -1853,10 +1842,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
         const privateLink = await this.getPrivateLink();
         subscription.activeInviteLink = privateLink.invite_link;
         await subscription.save();
-        const keyboard = new InlineKeyboard()
-          .url('🔗 Kanalga kirish', privateLink.invite_link)
-          .row()
-          .text('🔙 Asosiy menyu', 'main_menu');
+        const keyboard = new InlineKeyboard().url('🔗 Kanalga kirish', privateLink.invite_link);
 
         let messageText =
           `🎉 DEV TEST: Muvaffaqiyatli obuna bo'ldingiz!\n\n` +
