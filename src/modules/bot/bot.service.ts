@@ -667,9 +667,21 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const videoPath = join(process.cwd(), 'qiz3.mp4');
-    if (!existsSync(videoPath)) {
-      logger.warn('Intro video file not found', { videoPath });
+    const candidates = ['qiz3.mp4', 'intro.mp4'];
+    let videoPath: string | undefined;
+
+    for (const candidate of candidates) {
+      const resolvedPath = join(process.cwd(), candidate);
+      if (existsSync(resolvedPath)) {
+        videoPath = resolvedPath;
+        break;
+      }
+    }
+
+    if (!videoPath) {
+      logger.warn('Intro video file not found', {
+        searched: candidates.map((file) => join(process.cwd(), file)),
+      });
       return;
     }
 
