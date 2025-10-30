@@ -875,7 +875,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
       const keyboard = new InlineKeyboard()
         .url('📄 Foydalanish shartlari', termsLink)
         .row()
-        .url('💳 Uzcard/Humo ✅ Bepul obunasi', uzcardLink);
+        .url('✅ Obuna bo\'lish 💳 Uzcard/Humo ', uzcardLink);
 
       const termsMessage =
         '🤖 <b>Sun\'iy intellekt asosidagi bashorat xizmati</b>\n\n' +
