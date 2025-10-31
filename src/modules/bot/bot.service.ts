@@ -643,7 +643,6 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     });
     await this.createUserIfNotExist(ctx);
     await this.recordInteraction(ctx.from?.id, { started: true });
-    await this.showMainMenu(ctx);
     await videoPromise;
   }
 
