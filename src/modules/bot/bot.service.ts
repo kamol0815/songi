@@ -887,7 +887,17 @@ ${expirationLabel} ${subscriptionEndDate}`;
         ctx.callbackQuery?.message?.video,
       );
 
-      if (this.userHasActiveSubscription(user)) {
+      const hasActiveSubscription = this.userHasActiveSubscription(user);
+      let hasReusableCard = false;
+      if (hasActiveSubscription) {
+        hasReusableCard = !!(await UserCardsModel.findOne({
+          userId: user._id,
+          cardType: CardType.UZCARD,
+          isDeleted: { $ne: true },
+        }));
+      }
+
+      if (hasActiveSubscription && hasReusableCard) {
         const endDate = user.subscriptionEnd
           ? new Date(user.subscriptionEnd)
           : undefined;
