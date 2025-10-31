@@ -1,5 +1,5 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Bot, Context, InlineKeyboard, InputFile, session, SessionFlavor } from 'grammy';
+import { Bot, Context, InlineKeyboard, InputFile, session, SessionFlavor, GrammyError } from 'grammy';
 import { config, SubscriptionType } from '../../shared/config';
 import { SubscriptionService } from './services/subscription.service';
 import { SubscriptionMonitorService } from './services/subscription-monitor.service';
@@ -537,7 +537,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
           provider as 'uzcard' | 'payme' | 'click',
         );
       } else {
-        await ctx.answerCallbackQuery({
+        await this.safeAnswerCallback(ctx, {
           text: "Noma'lum to'lov turi tanlandi.",
           show_alert: true,
         });
@@ -562,10 +562,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       agree_terms: this.handleAgreement.bind(this),
 
       not_supported_international: async (ctx) => {
-        await ctx.answerCallbackQuery({
+        await this.safeAnswerCallback(ctx, {
           text: "⚠️ Kechirasiz, hozircha bu to'lov turi mavjud emas.",
           show_alert: true,
-        } as any);
+        });
       },
     };
 
@@ -775,9 +775,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       const user = await UserModel.findOne({ telegramId });
 
       if (!user) {
-        await ctx.answerCallbackQuery(
-          "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
-        );
+        await this.safeAnswerCallback(ctx, {
+          text: "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
+          show_alert: true,
+        });
         return;
       }
 
@@ -856,9 +857,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
       });
     } catch (error) {
       logger.error('Status check error:', error);
-      await ctx.answerCallbackQuery(
-        'Obuna holatini tekshirishda xatolik yuz berdi.',
-      );
+      await this.safeAnswerCallback(ctx, {
+        text: 'Obuna holatini tekshirishda xatolik yuz berdi.',
+        show_alert: true,
+      });
     }
   }
 
@@ -1864,6 +1866,33 @@ ${expirationLabel} ${subscriptionEndDate}`;
     await this.resolvePlanByService(selectedService);
 
     return selectedService;
+  }
+
+  private async safeAnswerCallback(
+    ctx: BotContext,
+    payload?: Parameters<BotContext['answerCallbackQuery']>[0],
+  ): Promise<void> {
+    try {
+      if (payload) {
+        await ctx.answerCallbackQuery(payload as any);
+      } else {
+        await ctx.answerCallbackQuery();
+      }
+    } catch (error) {
+      if (error instanceof GrammyError && error.error_code === 400) {
+        if (typeof (logger as any).debug === 'function') {
+          (logger as any).debug('Stale callback ignored', {
+            telegramId: ctx.from?.id,
+            description: error.description,
+          });
+        }
+      } else {
+        logger.warn('answerCallbackQuery failed', {
+          telegramId: ctx.from?.id,
+          error,
+        });
+      }
+    }
   }
 
 
