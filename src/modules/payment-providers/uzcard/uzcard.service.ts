@@ -316,6 +316,7 @@ export class UzCardApiService {
 
       const existingUserCard = await UserCardsModel.findOne({
         incompleteCardNumber: incompleteCardNumber,
+        isDeleted: { $ne: true },
       });
 
       if (existingUserCard) {
@@ -330,7 +331,8 @@ export class UzCardApiService {
       // Check if user already has a UZCARD card
       const existingCard = await UserCardsModel.findOne({
         telegramId: user.telegramId,
-        cardType: CardType.UZCARD
+        cardType: CardType.UZCARD,
+        isDeleted: { $ne: true },
       });
 
       let userCard;
@@ -350,6 +352,8 @@ export class UzCardApiService {
         existingCard.UzcardOwner = owner;
         existingCard.UzcardIncompleteNumber = incompleteCardNumber;
         existingCard.UzcardIdForDeleteCard = cardIdForDelete;
+        existingCard.isDeleted = false;
+        existingCard.deletedAt = undefined;
         userCard = await existingCard.save();
       } else {
         // Create new card
@@ -372,6 +376,7 @@ export class UzCardApiService {
           UzcardOwner: owner,
           UzcardIncompleteNumber: incompleteCardNumber,
           UzcardIdForDeleteCard: cardIdForDelete,
+          isDeleted: false,
         });
       }
 

@@ -245,7 +245,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       const endDateFormatted = `${subscription.subscriptionEnd.getDate().toString().padStart(2, '0')}.${(subscription.subscriptionEnd.getMonth() + 1).toString().padStart(2, '0')}.${subscription.subscriptionEnd.getFullYear()}`;
 
 
-      let messageText = `🎉 Tabriklaymiz! Munajjim premium obunasi muvaffaqiyatli faollashtirildi!\n\n`;
+      let messageText = `🎉 Tabriklaymiz! Munajjim bashoratlari obunasi muvaffaqiyatli faollashtirildi!\n\n`;
 
       messageText += `📆 Obuna muddati: ${endDateFormatted} gacha\n\n`;
 
