@@ -638,11 +638,13 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
     ctx.session.mainMenuMessageId = undefined;
 
-    const maybeVideo = this.sendIntroVideo(ctx);
+    const videoPromise = this.sendIntroVideo(ctx).catch((error) => {
+      logger.warn('Intro video send failed during /start', { error });
+    });
     await this.createUserIfNotExist(ctx);
     await this.recordInteraction(ctx.from?.id, { started: true });
-    await maybeVideo;
     await this.showMainMenu(ctx);
+    await videoPromise;
   }
 
   private async preloadIntroVideo(force = false): Promise<void> {
@@ -679,9 +681,9 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   private async sendIntroVideo(ctx: BotContext): Promise<void> {
     const chatId = ctx.chat?.id;
     if (!chatId) return;
-    if (!this.introVideoBuffer) {
+    if (!this.introVideoBuffer || !this.introVideoFilename) {
       await this.preloadIntroVideo();
-      if (!this.introVideoBuffer) {
+      if (!this.introVideoBuffer || !this.introVideoFilename) {
         logger.warn('Intro video still unavailable, skipping send');
         return;
       }
@@ -708,9 +710,13 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const message = await ctx.api.sendVideo(chatId, new InputFile(this.introVideoBuffer, this.introVideoFilename ?? 'intro.mp4'), {
-        reply_markup: keyboard,
-      });
+      const message = await ctx.api.sendVideo(
+        chatId,
+        new InputFile(this.introVideoBuffer, this.introVideoFilename),
+        {
+          reply_markup: keyboard,
+        },
+      );
 
       const uploadedFileId = message.video?.file_id;
       if (uploadedFileId) {
