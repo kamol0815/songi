@@ -887,25 +887,35 @@ ${expirationLabel} ${subscriptionEndDate}`;
         ctx.callbackQuery?.message?.video,
       );
 
-      const hasActiveSubscription = this.userHasActiveSubscription(user);
+      const subscription = await this.subscriptionService.getSubscription(
+        user._id as string,
+      );
+
+      const subscriptionActive = Boolean(subscription?.isActive);
+
       let hasReusableCard = false;
-      if (hasActiveSubscription) {
-        hasReusableCard = !!(await UserCardsModel.findOne({
+      if (subscriptionActive) {
+        hasReusableCard = await UserCardsModel.exists({
           userId: user._id,
           cardType: CardType.UZCARD,
           isDeleted: { $ne: true },
-        }));
+        }).then((doc) => Boolean(doc));
       }
 
-      if (hasActiveSubscription && hasReusableCard) {
-        const endDate = user.subscriptionEnd
-          ? new Date(user.subscriptionEnd)
-          : undefined;
-        const formatted = endDate
-          ? `${endDate.getDate().toString().padStart(2, '0')}.${(endDate.getMonth() + 1)
-              .toString()
-              .padStart(2, '0')}.${endDate.getFullYear()}`
-          : 'aktiv';
+      if (subscriptionActive && hasReusableCard) {
+        const endDateSource =
+          subscription?.subscriptionEnd ?? user.subscriptionEnd ?? null;
+        let formatted = 'aktiv';
+        if (endDateSource) {
+          const endDateObj =
+            endDateSource instanceof Date
+              ? endDateSource
+              : new Date(endDateSource);
+          formatted = `${endDateObj.getDate().toString().padStart(2, '0')}.${(endDateObj.getMonth() + 1)
+            .toString()
+            .padStart(2, '0')}.${endDateObj.getFullYear()}`;
+        }
+
         await this.safeAnswerCallback(ctx, {
           text: `🎉 Sizning obunangiz ${formatted} gacha faol.`,
           show_alert: true,
