@@ -54,6 +54,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   private introVideoBuffer?: Buffer;
   private introVideoFilename?: string;
   private readonly introVideoCandidates = ['qiz3.mp4', 'intro.mp4'];
+  private introVideoFileId?: string;
 
 
   constructor() {
@@ -638,10 +639,9 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
     ctx.session.mainMenuMessageId = undefined;
 
-    const videoPromise = this.sendIntroVideo(ctx);
+    void this.sendIntroVideo(ctx);
     await this.createUserIfNotExist(ctx);
     await this.recordInteraction(ctx.from?.id, { started: true });
-    await videoPromise;
   }
 
   private async preloadIntroVideo(force = false): Promise<void> {
@@ -680,18 +680,33 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const keyboard = new InlineKeyboard().text(
+      '🎁 30 kunlik ✅ Bepul obunaga ega bo\'lish',
+      'subscribe',
+    );
+
+    if (this.introVideoFileId) {
+      try {
+        await ctx.api.sendVideo(chatId, this.introVideoFileId, {
+          reply_markup: keyboard,
+        });
+        return;
+      } catch (error) {
+        logger.warn('Failed to send intro video by file_id, falling back to upload', {
+          chatId,
+          error,
+        });
+        this.introVideoFileId = undefined;
+      }
+    }
+
     await this.preloadIntroVideo();
     if (!this.introVideoBuffer) {
       return;
     }
 
     try {
-      const keyboard = new InlineKeyboard().text(
-        '🎁 30 kunlik ✅ Bepul obunaga ega bo\'lish',
-        'subscribe',
-      );
-
-      await ctx.api.sendVideo(
+      const message = await ctx.api.sendVideo(
         chatId,
         new InputFile(
           this.introVideoBuffer,
@@ -701,6 +716,16 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
           reply_markup: keyboard,
         },
       );
+
+      const uploadedFileId = message.video?.file_id;
+      if (uploadedFileId) {
+        this.introVideoFileId = uploadedFileId;
+        logger.info('Cached intro video file_id for faster reuse', {
+          fileId: uploadedFileId,
+        });
+      } else {
+        logger.warn('Intro video upload did not return file_id');
+      }
     } catch (error) {
       logger.error('Failed to send intro video', { chatId, error });
     }
