@@ -1472,6 +1472,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
     ctx: BotContext,
   ) {
     const selectedService = await this.selectedServiceChecker(ctx);
+    const telegramId = ctx.from?.id;
 
     const plan = await this.resolvePlanByService(selectedService);
 
@@ -1479,9 +1480,8 @@ ${expirationLabel} ${subscriptionEndDate}`;
       process.env.BASE_CLICK_URL +
       `?userId=${userId}&planId=${plan._id}&selectedService=${selectedService}`;
 
-    const uzcardUrl =
-      process.env.UZCARD_API_URL_SPORTS +
-      `?userId=${userId}&planId=${plan._id}&selectedService=${selectedService}`;
+    // Use tracking link for Uzcard to capture analytics
+    const uzcardUrl = this.createTrackableUzcardLink(telegramId, userId, plan._id.toString(), selectedService);
 
     return new InlineKeyboard()
       .url('🏦 Uzcard/Humo (30 kun bepul)', uzcardUrl)
