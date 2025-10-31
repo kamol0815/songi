@@ -632,25 +632,6 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   private async handleStart(ctx: BotContext): Promise<void> {
     ctx.session.hasAgreedToTerms = false;
 
-    const chatId = ctx.chat?.id;
-    const messageId = ctx.message?.message_id;
-
-    if (chatId && messageId) {
-      try {
-        await ctx.api.deleteMessage(chatId, messageId);
-      } catch (error) {
-        logger.warn('Start command message could not be deleted', {
-          chatId,
-          messageId,
-          error,
-        });
-      }
-
-      await this.clearChatHistory(ctx, messageId);
-    } else {
-      await this.clearChatHistory(ctx);
-    }
-
     ctx.session.mainMenuMessageId = undefined;
 
     await this.createUserIfNotExist(ctx);
@@ -1001,39 +982,11 @@ ${expirationLabel} ${subscriptionEndDate}`;
 
   private async getPrivateLink(): Promise<string> {
     try {
-      const expireAt = Math.floor(Date.now() / 1000) + 10 * 60;
-
-      try {
-        const link = await this.bot.api.createChatInviteLink(
-          config.CHANNEL_ID,
-          {
-            expire_date: expireAt,
-            creates_join_request: true,
-          },
-        );
-
-        if (link?.invite_link) {
-          return link.invite_link;
-        }
-
-        logger.warn('Generated invite link without invite_link field', {
-          link,
-        });
-      } catch (createError) {
-        logger.warn('Failed to create expiring invite link, falling back', {
-          error: createError,
-        });
-      }
-
-      const fallbackLink = await this.bot.api.exportChatInviteLink(
-        config.CHANNEL_ID,
-      );
-
-      if (!fallbackLink) {
+      const link = await this.bot.api.exportChatInviteLink(config.CHANNEL_ID);
+      if (!link) {
         throw new Error('Exported invite link was empty');
       }
-
-      return fallbackLink;
+      return link;
     } catch (error) {
       logger.error('Error generating channel invite link', { error });
       throw error;
@@ -1536,20 +1489,9 @@ ${expirationLabel} ${subscriptionEndDate}`;
       return;
     }
 
-    try {
-      await this.bot.api.revokeChatInviteLink(
-        config.CHANNEL_ID,
-        user.activeInviteLink,
-      );
-      logger.info('Revoked existing invite link for user', {
-        telegramId: user.telegramId,
-      });
-    } catch (error) {
-      logger.warn('Failed to revoke invite link', {
-        telegramId: user.telegramId,
-        error,
-      });
-    }
+    logger.info('Clearing stored invite link without revoking to keep it active', {
+      telegramId: user.telegramId,
+    });
 
     user.activeInviteLink = undefined;
 
@@ -1559,47 +1501,6 @@ ${expirationLabel} ${subscriptionEndDate}`;
       } catch (error) {
         logger.warn('Failed to save user after revoking invite link', {
           telegramId: user.telegramId,
-          error,
-        });
-      }
-    }
-  }
-
-  private async clearChatHistory(
-    ctx: BotContext,
-    fromMessageId?: number,
-    limit = 30,
-  ): Promise<void> {
-    const chatId = ctx.chat?.id;
-    const baseMessageId = fromMessageId ?? ctx.message?.message_id;
-
-    if (!chatId || !baseMessageId || baseMessageId <= 1) {
-      return;
-    }
-
-    for (let offset = 1; offset <= limit; offset++) {
-      const targetMessageId = baseMessageId - offset;
-      if (targetMessageId <= 0) {
-        break;
-      }
-
-      try {
-        await ctx.api.deleteMessage(chatId, targetMessageId);
-      } catch (error: any) {
-        const description: string | undefined = error?.description;
-
-        if (
-          description &&
-          (description.includes("message can't be deleted") ||
-            description.includes('message to delete not found') ||
-            description.includes('bot was blocked by the user'))
-        ) {
-          continue;
-        }
-
-        logger.warn('Failed to delete message while clearing chat history', {
-          chatId,
-          targetMessageId,
           error,
         });
       }
