@@ -2050,16 +2050,13 @@ ${expirationLabel} ${subscriptionEndDate}`;
   private createTrackableTermsLink(telegramId: number): string {
     const token = createTrackingToken(telegramId, 'terms');
     const baseUrl = process.env.BASE_URL || 'http://213.230.110.176:8989';
-    return `${baseUrl}/bot/redirect/terms?token=${token}`;
+    return `${baseUrl}/api/bot/redirect/terms?token=${token}`;
   }
 
   private createTrackableUzcardLink(telegramId: number, userId: string, planId: string, selectedService: string): string {
     const token = createTrackingToken(telegramId, 'uzcard');
     const baseUrl = process.env.BASE_URL || 'http://213.230.110.176:8989';
-    const redirectUrl = `${baseUrl}/bot/redirect/uzcard?token=${token}`;
-
-    // Add the original parameters to the UZCARD_FREE_TRIAL_BASE_URL
-    const originalParams = `?userId=${userId}&planId=${planId}&selectedService=${selectedService}`;
+    const redirectUrl = `${baseUrl}/api/bot/redirect/uzcard?token=${token}`;
 
     // We'll modify the controller to handle this redirect properly
     return `${redirectUrl}&userId=${userId}&planId=${planId}&selectedService=${selectedService}`;
