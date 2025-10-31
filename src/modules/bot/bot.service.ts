@@ -891,8 +891,21 @@ ${expirationLabel} ${subscriptionEndDate}`;
         user._id as string,
       );
 
-      const subscriptionActive =
-        Boolean(subscription?.isActive) || this.userHasActiveSubscription(user);
+      const hasActiveSubscriptionFromService = Boolean(subscription?.isActive);
+      const hasActiveSubscriptionFromUser = this.userHasActiveSubscription(user);
+      const subscriptionActive = hasActiveSubscriptionFromService || hasActiveSubscriptionFromUser;
+
+      // Debug logging
+      logger.info('Subscription check details', {
+        telegramId,
+        hasActiveSubscriptionFromService,
+        hasActiveSubscriptionFromUser,
+        subscriptionActive,
+        userIsActive: user.isActive,
+        userSubscriptionEnd: user.subscriptionEnd,
+        subscriptionIsActive: subscription?.isActive,
+        subscriptionEnd: subscription?.subscriptionEnd
+      });
 
       if (subscriptionActive) {
         const endDateSource =
@@ -914,7 +927,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
           .row()
           .text('🔙 Asosiy menyu', 'main_menu');
 
-        const messageText = `Kechirasiz, sizning obunangiz ${formatted} gacha faol. Qayta to'lov talab qilinmaydi.`;
+        const messageText = `✅ Kechirasiz, sizda allaqachon faol obuna mavjud!\n\n📅 Obuna muddati: ${formatted} gacha\n\n🔔 Qayta to'lov talab qilinmaydi. Obunangiz faol bo'lgan vaqt davomida barcha premium kontentlardan foydalanishingiz mumkin.`;
 
         // Try to edit the message if it's from a callback query, otherwise send a new message
         if (ctx.callbackQuery) {
@@ -1397,7 +1410,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
           .row()
           .text('🔙 Asosiy menyu', 'main_menu');
 
-        const messageText = `Kechirasiz, sizning obunangiz ${formatted} gacha faol. Qayta to'lov talab qilinmaydi.`;
+        const messageText = `✅ Kechirasiz, sizda allaqachon faol obuna mavjud!\n\n📅 Obuna muddati: ${formatted} gacha\n\n🔔 Qayta to'lov talab qilinmaydi. Obunangiz faol bo'lgan vaqt davomida barcha premium kontentlardan foydalanishingiz mumkin.`;
 
         await ctx.editMessageText(messageText, {
           reply_markup: keyboard,
@@ -1483,7 +1496,13 @@ ${expirationLabel} ${subscriptionEndDate}`;
   }
 
   private userHasActiveSubscription(user: IUserDocument): boolean {
+    // Check if user has both isActive flag and subscriptionEnd date
     if (!user.isActive || !user.subscriptionEnd) {
+      logger.debug('User subscription check failed', {
+        telegramId: user.telegramId,
+        isActive: user.isActive,
+        hasSubscriptionEnd: Boolean(user.subscriptionEnd)
+      });
       return false;
     }
 
@@ -1492,7 +1511,16 @@ ${expirationLabel} ${subscriptionEndDate}`;
         ? user.subscriptionEnd
         : new Date(user.subscriptionEnd);
 
-    return subscriptionEnd.getTime() > Date.now();
+    const isActive = subscriptionEnd.getTime() > Date.now();
+
+    logger.debug('User subscription time check', {
+      telegramId: user.telegramId,
+      subscriptionEnd: subscriptionEnd.toISOString(),
+      currentTime: new Date().toISOString(),
+      isActive
+    });
+
+    return isActive;
   }
 
   private async getLastSuccessfulProvider(
@@ -1511,13 +1539,13 @@ ${expirationLabel} ${subscriptionEndDate}`;
   private getAlreadyPaidMessage(provider?: string): string {
     switch (provider) {
       case 'click':
-        return "Siz Click orqali bir martalik to'lov qilgansiz. Obuna muddati tugagach qayta urinib ko'ring.";
+        return "✅ Kechirasiz, sizda allaqachon faol obuna mavjud! Siz Click orqali to'lov qilgansiz. Obuna muddati tugagach qayta urinib ko'ring.";
       case 'payme':
-        return "Siz Payme orqali bir martalik to'lov qilgansiz. Obuna muddati tugagach qayta urinib ko'ring.";
+        return "✅ Kechirasiz, sizda allaqachon faol obuna mavjud! Siz Payme orqali to'lov qilgansiz. Obuna muddati tugagach qayta urinib ko'ring.";
       case 'uzcard':
-        return "Siz Uzcard orqali bir martalik to'lov qilgansiz. Obuna muddati tugagach qayta urinib ko'ring.";
+        return "✅ Kechirasiz, sizda allaqachon faol obuna mavjud! Siz Uzcard orqali to'lov qilgansiz. Obuna muddati tugagach qayta urinib ko'ring.";
       default:
-        return "Sizda faol obuna mavjud. Obuna muddati tugagach qayta to'lov qilishingiz mumkin.";
+        return "✅ Kechirasiz, sizda allaqachon faol obuna mavjud! Obuna muddati tugagach qayta to'lov qilishingiz mumkin.";
     }
   }
 
