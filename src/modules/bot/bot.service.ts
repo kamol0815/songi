@@ -891,18 +891,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
         user._id as string,
       );
 
-      const subscriptionActive = Boolean(subscription?.isActive);
+      const subscriptionActive =
+        Boolean(subscription?.isActive) || this.userHasActiveSubscription(user);
 
-      let hasReusableCard = false;
       if (subscriptionActive) {
-        hasReusableCard = await UserCardsModel.exists({
-          userId: user._id,
-          cardType: CardType.UZCARD,
-          isDeleted: { $ne: true },
-        }).then((doc) => Boolean(doc));
-      }
-
-      if (subscriptionActive && hasReusableCard) {
         const endDateSource =
           subscription?.subscriptionEnd ?? user.subscriptionEnd ?? null;
         let formatted = 'aktiv';
@@ -917,7 +909,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
         }
 
         await this.safeAnswerCallback(ctx, {
-          text: `🎉 Sizning obunangiz ${formatted} gacha faol.`,
+          text: `🎉 Sizning obunangiz ${formatted} gacha faol. Qayta to'lov talab qilinmaydi.`,
           show_alert: true,
         });
         return;
