@@ -65,7 +65,6 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       this.subscriptionMonitorService,
     );
     this.subscriptionTermsLink = this.resolveSubscriptionTermsLink();
-    void this.preloadIntroVideo();
     this.setupMiddleware();
     this.setupHandlers();
   }
@@ -645,7 +644,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async preloadIntroVideo(force = false): Promise<void> {
-    if (this.introVideoBuffer && !force) {
+    if (this.introVideoBuffer && this.introVideoFileId && !force) {
       return;
     }
 
@@ -655,6 +654,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         const fileBuffer = await fs.readFile(resolvedPath);
         this.introVideoBuffer = fileBuffer;
         this.introVideoFilename = candidate;
+        this.introVideoFileId = undefined;
         logger.info('Preloaded intro video', { file: resolvedPath });
         return;
       } catch (error) {
@@ -680,6 +680,13 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    if (!this.introVideoBuffer) {
+      await this.preloadIntroVideo();
+      if (!this.introVideoBuffer) {
+        return;
+      }
+    }
+
     const keyboard = new InlineKeyboard().text(
       '🎁 30 kunlik ✅ Bepul obunaga ega bo\'lish',
       'subscribe',
@@ -698,11 +705,6 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         });
         this.introVideoFileId = undefined;
       }
-    }
-
-    await this.preloadIntroVideo();
-    if (!this.introVideoBuffer) {
-      return;
     }
 
     try {
