@@ -55,6 +55,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   private introVideoFilename?: string;
   private readonly introVideoCandidates = ['qiz3.mp4', 'intro.mp4'];
   private introVideoFileId?: string;
+  private cachedInviteLink?: string;
 
 
   constructor() {
@@ -65,6 +66,11 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       this.subscriptionMonitorService,
     );
     this.subscriptionTermsLink = this.resolveSubscriptionTermsLink();
+    const staticLink = process.env.CHANNEL_STATIC_LINK?.trim();
+    if (staticLink) {
+      this.cachedInviteLink = staticLink;
+      logger.info('Static channel invite link configured', { link: staticLink });
+    }
     this.setupMiddleware();
     this.setupHandlers();
   }
@@ -868,9 +874,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
       const telegramId = ctx.from?.id;
       const user = await UserModel.findOne({ telegramId });
       if (!user) {
-        await ctx.answerCallbackQuery(
-          "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
-        );
+        await this.safeAnswerCallback(ctx, {
+          text: "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
+          show_alert: true,
+        });
         return;
       }
 
@@ -879,6 +886,22 @@ ${expirationLabel} ${subscriptionEndDate}`;
       const triggeredFromIntroVideo = Boolean(
         ctx.callbackQuery?.message?.video,
       );
+
+      if (this.userHasActiveSubscription(user)) {
+        const endDate = user.subscriptionEnd
+          ? new Date(user.subscriptionEnd)
+          : undefined;
+        const formatted = endDate
+          ? `${endDate.getDate().toString().padStart(2, '0')}.${(endDate.getMonth() + 1)
+              .toString()
+              .padStart(2, '0')}.${endDate.getFullYear()}`
+          : 'aktiv';
+        await this.safeAnswerCallback(ctx, {
+          text: `🎉 Sizning obunangiz ${formatted} gacha faol.`,
+          show_alert: true,
+        });
+        return;
+      }
 
       if (triggeredFromIntroVideo) {
         await this.recordInteraction(ctx.from?.id, {
@@ -930,12 +953,13 @@ ${expirationLabel} ${subscriptionEndDate}`;
         });
       }
 
-      await ctx.answerCallbackQuery();
+      await this.safeAnswerCallback(ctx);
     } catch (error) {
       logger.error('Subscription plan display error:', error);
-      await ctx.answerCallbackQuery(
-        "Obuna turlarini ko'rsatishda xatolik yuz berdi.",
-      );
+      await this.safeAnswerCallback(ctx, {
+        text: "Obuna turlarini ko'rsatishda xatolik yuz berdi.",
+        show_alert: true,
+      });
     }
   }
 
@@ -944,9 +968,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
       const telegramId = ctx.from?.id;
       const user = await UserModel.findOne({ telegramId });
       if (!user) {
-        await ctx.answerCallbackQuery(
-          "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
-        );
+        await this.safeAnswerCallback(ctx, {
+          text: "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
+          show_alert: true,
+        });
         return;
       }
 
@@ -954,9 +979,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
 
       await this.showPaymentTypeSelection(ctx);
     } catch (error) {
-      await ctx.answerCallbackQuery(
-        "To'lov turlarini ko'rsatishda xatolik yuz berdi.",
-      );
+      await this.safeAnswerCallback(ctx, {
+        text: "To'lov turlarini ko'rsatishda xatolik yuz berdi.",
+        show_alert: true,
+      });
     }
   }
 
@@ -970,9 +996,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
       const telegramId = ctx.from?.id;
       const user = await UserModel.findOne({ telegramId: telegramId });
       if (!user) {
-        await ctx.answerCallbackQuery(
-          "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
-        );
+        await this.safeAnswerCallback(ctx, {
+          text: "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
+          show_alert: true,
+        });
         return;
       }
 
@@ -1026,22 +1053,32 @@ ${expirationLabel} ${subscriptionEndDate}`;
           return;
         }
         logger.error('Subscription confirmation error:', error);
-        await ctx.answerCallbackQuery(
-          'Obunani tasdiqlashda xatolik yuz berdi.',
-        );
+        await this.safeAnswerCallback(ctx, {
+          text: 'Obunani tasdiqlashda xatolik yuz berdi.',
+          show_alert: true,
+        });
       }
     } catch (error) {
       logger.error('Subscription confirmation error:', error);
-      await ctx.answerCallbackQuery('Obunani tasdiqlashda xatolik yuz berdi.');
+      await this.safeAnswerCallback(ctx, {
+        text: 'Obunani tasdiqlashda xatolik yuz berdi.',
+        show_alert: true,
+      });
     }
   }
 
   private async getPrivateLink(): Promise<string> {
+    if (this.cachedInviteLink) {
+      return this.cachedInviteLink;
+    }
+
     try {
       const link = await this.bot.api.exportChatInviteLink(config.CHANNEL_ID);
       if (!link) {
         throw new Error('Exported invite link was empty');
       }
+      this.cachedInviteLink = link;
+      logger.info('Cached persistent channel invite link');
       return link;
     } catch (error) {
       logger.error('Error generating channel invite link', { error });
@@ -1081,29 +1118,29 @@ ${expirationLabel} ${subscriptionEndDate}`;
   private async handlePaymeSubscriptionUnavailable(
     ctx: BotContext,
   ): Promise<void> {
-    await ctx.answerCallbackQuery({
+    await this.safeAnswerCallback(ctx, {
       text: '⚠️ Tez orada bu Payme bilan obuna ishlaydi. Jarayonda.',
       show_alert: true,
-    } as any);
+    });
   }
 
   private async handleSubscriptionCancellation(ctx: BotContext): Promise<void> {
     try {
       const telegramId = ctx.from?.id;
       if (!telegramId) {
-        await ctx.answerCallbackQuery({
+        await this.safeAnswerCallback(ctx, {
           text: "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
           show_alert: true,
-        } as any);
+        });
         return;
       }
 
       const user = await UserModel.findOne({ telegramId }).exec();
       if (!user) {
-        await ctx.answerCallbackQuery({
+        await this.safeAnswerCallback(ctx, {
           text: 'Kechirasiz, siz tizimda ro‘yxatdan o‘tmagansiz.',
           show_alert: true,
-        } as any);
+        });
         return;
       }
 
@@ -1112,19 +1149,19 @@ ${expirationLabel} ${subscriptionEndDate}`;
       );
 
       if (!activeSubscription || !this.userHasActiveSubscription(activeSubscription)) {
-        await ctx.answerCallbackQuery({
+        await this.safeAnswerCallback(ctx, {
           text: 'Kechirasiz, hozirda sizda faol obuna yo‘q.',
           show_alert: true,
-        } as any);
+        });
         return;
       }
 
       const link = buildSubscriptionCancellationLink(telegramId);
       if (!link) {
-        await ctx.answerCallbackQuery({
+        await this.safeAnswerCallback(ctx, {
           text: 'Bekor qilish havolasini yaratib bo‘lmadi. Keyinroq urinib ko‘ring.',
           show_alert: true,
-        } as any);
+        });
         return;
       }
 
@@ -1142,10 +1179,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
       );
     } catch (error) {
       logger.error('Subscription cancellation link error:', error);
-      await ctx.answerCallbackQuery({
+      await this.safeAnswerCallback(ctx, {
         text: 'Bekor qilish havolasini olishda xatolik yuz berdi.',
         show_alert: true,
-      } as any);
+      });
     }
   }
 
@@ -1153,10 +1190,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
     ctx: BotContext,
     _provider: CardType,
   ): Promise<void> {
-    await ctx.answerCallbackQuery({
+    await this.safeAnswerCallback(ctx, {
       text: 'Saqlangan karta orqali to\'lov hozircha qo\'llab-quvvatlanmaydi.',
       show_alert: true,
-    } as any);
+    });
   }
 
   private async createUserIfNotExist(ctx: BotContext): Promise<void> {
@@ -1209,9 +1246,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
         },
       );
     } catch (error) {
-      await ctx.answerCallbackQuery(
-        "To'lov turlarini ko'rsatishda xatolik yuz berdi.",
-      );
+      await this.safeAnswerCallback(ctx, {
+        text: "To'lov turlarini ko'rsatishda xatolik yuz berdi.",
+        show_alert: true,
+      });
     }
   }
 
@@ -1225,9 +1263,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
       const telegramId = ctx.from?.id;
       const user = await UserModel.findOne({ telegramId: telegramId });
       if (!user) {
-        await ctx.answerCallbackQuery(
-          "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
-        );
+        await this.safeAnswerCallback(ctx, {
+          text: "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
+          show_alert: true,
+        });
         return;
       }
 
@@ -1237,10 +1276,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
         );
         const message = this.getAlreadyPaidMessage(provider);
 
-        await ctx.answerCallbackQuery({
+        await this.safeAnswerCallback(ctx, {
           text: message,
           show_alert: true,
-        } as any);
+        });
         await this.showMainMenu(ctx);
         return;
       }
@@ -1266,9 +1305,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
         },
       );
     } catch (error) {
-      await ctx.answerCallbackQuery(
-        "To'lov turlarini ko'rsatishda xatolik yuz berdi.",
-      );
+      await this.safeAnswerCallback(ctx, {
+        text: "To'lov turlarini ko'rsatishda xatolik yuz berdi.",
+        show_alert: true,
+      });
     }
   }
 
@@ -1282,9 +1322,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
       const telegramId = ctx.from?.id;
       const user = await UserModel.findOne({ telegramId: telegramId });
       if (!user) {
-        await ctx.answerCallbackQuery(
-          "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
-        );
+        await this.safeAnswerCallback(ctx, {
+          text: "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
+          show_alert: true,
+        });
         return;
       }
 
@@ -1306,9 +1347,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
         },
       );
     } catch (error) {
-      await ctx.answerCallbackQuery(
-        "To'lov turlarini ko'rsatishda xatolik yuz berdi.",
-      );
+      await this.safeAnswerCallback(ctx, {
+        text: "To'lov turlarini ko'rsatishda xatolik yuz berdi.",
+        show_alert: true,
+      });
     }
   }
 
@@ -1318,7 +1360,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
     selectedService: string,
   ) {
     if (!selectedService) {
-      await ctx.answerCallbackQuery('Iltimos, avval xizmat turini tanlang.');
+      await this.safeAnswerCallback(ctx, { text: 'Iltimos, avval xizmat turini tanlang.', show_alert: true });
       await this.showMainMenu(ctx);
       return;
     }
@@ -1413,7 +1455,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
     const telegramId = ctx.from?.id;
 
     if (!telegramId) {
-      await ctx.answerCallbackQuery({
+      await this.safeAnswerCallback(ctx, {
         text: "Foydalanuvchi ma'lumotlari topilmadi. Iltimos, qayta urinib ko'ring.",
         show_alert: true,
       });
@@ -1423,7 +1465,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
     const user = await UserModel.findOne({ telegramId }).exec();
 
     if (!user) {
-      await ctx.answerCallbackQuery({
+      await this.safeAnswerCallback(ctx, {
         text: "Foydalanuvchi ma'lumotlari topilmadi. Iltimos, qayta boshlang.",
         show_alert: true,
       });
@@ -1431,7 +1473,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
     }
 
     if (this.userHasActiveSubscription(user)) {
-      await ctx.answerCallbackQuery({
+      await this.safeAnswerCallback(ctx, {
         text: 'Sizda allaqachon faol obuna mavjud. Yangi to‘lov talab qilinmaydi.',
         show_alert: true,
       });
@@ -1458,7 +1500,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
       case 'uzcard': {
         const baseUrl = process.env.BASE_UZCARD_ONETIME_URL;
         if (!baseUrl) {
-          await ctx.answerCallbackQuery({
+          await this.safeAnswerCallback(ctx, {
             text: "Uzcard to'lov havolasi sozlanmagan. Iltimos, administrator bilan bog'laning.",
             show_alert: true,
           });
@@ -1485,7 +1527,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
         break;
       }
       default:
-        await ctx.answerCallbackQuery({
+        await this.safeAnswerCallback(ctx, {
           text: "Noma'lum to'lov turi tanlandi.",
           show_alert: true,
         });
@@ -1493,7 +1535,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
     }
 
     if (!redirectUrl) {
-      await ctx.answerCallbackQuery({
+      await this.safeAnswerCallback(ctx, {
         text: "To'lov havolasi tayyorlanmadi. Iltimos, administrator bilan bog'laning.",
         show_alert: true,
       });
@@ -1534,7 +1576,7 @@ ${expirationLabel} ${subscriptionEndDate}`;
       );
     }
 
-    await ctx.answerCallbackQuery();
+    await this.safeAnswerCallback(ctx);
   }
 
   private async revokeUserInviteLink(
@@ -1776,9 +1818,10 @@ ${expirationLabel} ${subscriptionEndDate}`;
       const telegramId = ctx.from?.id;
       const user = await UserModel.findOne({ telegramId });
       if (!user) {
-        await ctx.answerCallbackQuery(
-          "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
-        );
+        await this.safeAnswerCallback(ctx, {
+          text: "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
+          show_alert: true,
+        });
         return;
       }
 
@@ -1842,15 +1885,17 @@ ${expirationLabel} ${subscriptionEndDate}`;
           return;
         }
         logger.error('Dev test subscription error:', error);
-        await ctx.answerCallbackQuery(
-          'Obunani tasdiqlashda xatolik yuz berdi.',
-        );
+        await this.safeAnswerCallback(ctx, {
+          text: 'Obunani tasdiqlashda xatolik yuz berdi.',
+          show_alert: true,
+        });
       }
     } catch (error) {
       logger.error('Dev test subscription error:', error);
-      await ctx.answerCallbackQuery(
-        'Dev test obunasini yaratishda xatolik yuz berdi.',
-      );
+      await this.safeAnswerCallback(ctx, {
+        text: 'Dev test obunasini yaratishda xatolik yuz berdi.',
+        show_alert: true,
+      });
     }
   }
 
