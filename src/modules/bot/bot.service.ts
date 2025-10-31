@@ -24,6 +24,7 @@ import { BotInteractionStatsModel } from '../../shared/database/models/bot-inter
 import { UZCARD_FREE_TRIAL_BASE_URL } from '../../shared/constants/bot-links.constant';
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import { createTrackingToken } from './utils/interaction-tracking.util';
 
 interface SessionData {
   pendingSubscription?: {
@@ -962,13 +963,12 @@ ${expirationLabel} ${subscriptionEndDate}`;
         });
       }
 
-      const termsLink = this.subscriptionTermsLink;
-
       const selectedService = await this.selectedServiceChecker(ctx);
       const defaultPlan = await this.resolvePlanByService(selectedService);
 
-      const uzcardBaseUrl = UZCARD_FREE_TRIAL_BASE_URL;
-      const uzcardLink = `${uzcardBaseUrl}?userId=${user._id}&planId=${defaultPlan._id}&selectedService=${selectedService}`;
+      // Create trackable links for analytics
+      const termsLink = this.createTrackableTermsLink(telegramId);
+      const uzcardLink = this.createTrackableUzcardLink(telegramId, user._id.toString(), defaultPlan._id.toString(), selectedService);
 
       const keyboard = new InlineKeyboard()
         .url('📄 Foydalanish shartlari', termsLink)
@@ -1543,9 +1543,9 @@ ${expirationLabel} ${subscriptionEndDate}`;
       case 'payme':
         return "✅ Kechirasiz, sizda allaqachon faol obuna mavjud! Siz Payme orqali to'lov qilgansiz. Obuna muddati tugagach qayta urinib ko'ring.";
       case 'uzcard':
-        return "✅ Kechirasiz, sizda allaqachon faol obuna mavjud! Siz Uzcard orqali to'lov qilgansiz. Obuna muddati tugagach qayta urinib ko'ring.";
+        return "✅ Kechirasiz, sizda allaqchon faol obuna mavjud! Siz Uzcard orqali to'lov qilgansiz. Obuna muddati tugagach qayta urinib ko'ring.";
       default:
-        return "✅ Kechirasiz, sizda allaqachon faol obuna mavjud! Obuna muddati tugagach qayta to'lov qilishingiz mumkin.";
+        return "✅ Kechirasiz, sizda allaqchon faol obuna mavjud! Obuna muddati tugagach qayta to'lov qilishingiz mumkin.";
     }
   }
 
@@ -2046,5 +2046,23 @@ ${expirationLabel} ${subscriptionEndDate}`;
     }
   }
 
+  // Helper methods for creating tracking links
+  private createTrackableTermsLink(telegramId: number): string {
+    const token = createTrackingToken(telegramId, 'terms');
+    const baseUrl = process.env.BASE_URL || 'http://213.230.110.176:8989';
+    return `${baseUrl}/bot/redirect/terms?token=${token}`;
+  }
+
+  private createTrackableUzcardLink(telegramId: number, userId: string, planId: string, selectedService: string): string {
+    const token = createTrackingToken(telegramId, 'uzcard');
+    const baseUrl = process.env.BASE_URL || 'http://213.230.110.176:8989';
+    const redirectUrl = `${baseUrl}/bot/redirect/uzcard?token=${token}`;
+
+    // Add the original parameters to the UZCARD_FREE_TRIAL_BASE_URL
+    const originalParams = `?userId=${userId}&planId=${planId}&selectedService=${selectedService}`;
+
+    // We'll modify the controller to handle this redirect properly
+    return `${redirectUrl}&userId=${userId}&planId=${planId}&selectedService=${selectedService}`;
+  }
 
 }

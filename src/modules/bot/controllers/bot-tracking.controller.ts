@@ -21,14 +21,22 @@ export class BotTrackingController {
   }
 
   @Get('uzcard')
-  async redirectToUzcard(@Query('token') token: string, @Res() res: Response): Promise<void> {
+  async redirectToUzcard(
+    @Query('token') token: string,
+    @Query('userId') userId: string,
+    @Query('planId') planId: string,
+    @Query('selectedService') selectedService: string,
+    @Res() res: Response
+  ): Promise<void> {
     const payload = this.safeVerifyToken(token, 'uzcard');
 
     if (payload) {
       await this.recordInteraction(payload.telegramId, { openedUzcard: true });
     }
 
-    res.redirect(UZCARD_FREE_TRIAL_BASE_URL);
+    // Build the final URL with parameters
+    const finalUrl = `${UZCARD_FREE_TRIAL_BASE_URL}?userId=${userId}&planId=${planId}&selectedService=${selectedService}`;
+    res.redirect(finalUrl);
   }
 
   private safeVerifyToken(token: string | undefined, expectedType: TrackableLinkType) {
