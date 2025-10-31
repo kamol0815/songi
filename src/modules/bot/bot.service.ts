@@ -22,7 +22,7 @@ import {
 } from '../../shared/database/models/transactions.model';
 import { BotInteractionStatsModel } from '../../shared/database/models/bot-interaction-stats.model';
 import { UZCARD_FREE_TRIAL_BASE_URL } from '../../shared/constants/bot-links.constant';
-import { createReadStream, existsSync } from 'fs';
+import { promises as fs } from 'fs';
 import { join } from 'path';
 
 interface SessionData {
@@ -51,6 +51,9 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   private subscriptionChecker: SubscriptionChecker;
   private readonly ADMIN_IDS = [1487957834, 7554617589, 85939027, 2022496528];
   private readonly subscriptionTermsLink: string;
+  private introVideoBuffer?: Buffer;
+  private introVideoFilename?: string;
+  private readonly introVideoCandidates = ['qiz3.mp4', 'intro.mp4'];
 
 
   constructor() {
@@ -61,6 +64,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       this.subscriptionMonitorService,
     );
     this.subscriptionTermsLink = this.resolveSubscriptionTermsLink();
+    void this.preloadIntroVideo();
     this.setupMiddleware();
     this.setupHandlers();
   }
@@ -634,9 +638,40 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
     ctx.session.mainMenuMessageId = undefined;
 
+    const videoPromise = this.sendIntroVideo(ctx);
     await this.createUserIfNotExist(ctx);
     await this.recordInteraction(ctx.from?.id, { started: true });
-    await this.sendIntroVideo(ctx);
+    await videoPromise;
+  }
+
+  private async preloadIntroVideo(force = false): Promise<void> {
+    if (this.introVideoBuffer && !force) {
+      return;
+    }
+
+    for (const candidate of this.introVideoCandidates) {
+      const resolvedPath = join(process.cwd(), candidate);
+      try {
+        const fileBuffer = await fs.readFile(resolvedPath);
+        this.introVideoBuffer = fileBuffer;
+        this.introVideoFilename = candidate;
+        logger.info('Preloaded intro video', { file: resolvedPath });
+        return;
+      } catch (error) {
+        if (typeof (logger as any).debug === 'function') {
+          (logger as any).debug('Intro video candidate not found', {
+            candidate: resolvedPath,
+            error,
+          });
+        }
+      }
+    }
+
+    this.introVideoBuffer = undefined;
+    this.introVideoFilename = undefined;
+    logger.warn('Intro video file not found', {
+      searched: this.introVideoCandidates.map((file) => join(process.cwd(), file)),
+    });
   }
 
   private async sendIntroVideo(ctx: BotContext): Promise<void> {
@@ -645,21 +680,8 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const candidates = ['qiz3.mp4', 'intro.mp4'];
-    let videoPath: string | undefined;
-
-    for (const candidate of candidates) {
-      const resolvedPath = join(process.cwd(), candidate);
-      if (existsSync(resolvedPath)) {
-        videoPath = resolvedPath;
-        break;
-      }
-    }
-
-    if (!videoPath) {
-      logger.warn('Intro video file not found', {
-        searched: candidates.map((file) => join(process.cwd(), file)),
-      });
+    await this.preloadIntroVideo();
+    if (!this.introVideoBuffer) {
       return;
     }
 
@@ -669,9 +691,16 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         'subscribe',
       );
 
-      await ctx.api.sendVideo(chatId, new InputFile(createReadStream(videoPath)), {
-        reply_markup: keyboard,
-      });
+      await ctx.api.sendVideo(
+        chatId,
+        new InputFile(
+          this.introVideoBuffer,
+          this.introVideoFilename ?? 'intro.mp4',
+        ),
+        {
+          reply_markup: keyboard,
+        },
+      );
     } catch (error) {
       logger.error('Failed to send intro video', { chatId, error });
     }
