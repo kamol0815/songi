@@ -908,10 +908,38 @@ ${expirationLabel} ${subscriptionEndDate}`;
             .padStart(2, '0')}.${endDateObj.getFullYear()}`;
         }
 
-        await this.safeAnswerCallback(ctx, {
-          text: `🎉 Sizning obunangiz ${formatted} gacha faol. Qayta to'lov talab qilinmaydi.`,
-          show_alert: true,
-        });
+        // Create a keyboard to go back to main menu
+        const keyboard = new InlineKeyboard()
+          .text('📊 Obuna holati', 'check_status')
+          .row()
+          .text('🔙 Asosiy menyu', 'main_menu');
+
+        const messageText = `Kechirasiz, sizning obunangiz ${formatted} gacha faol. Qayta to'lov talab qilinmaydi.`;
+
+        // Try to edit the message if it's from a callback query, otherwise send a new message
+        if (ctx.callbackQuery) {
+          try {
+            await ctx.editMessageText(messageText, {
+              reply_markup: keyboard,
+              parse_mode: 'HTML',
+            });
+          } catch (error) {
+            logger.warn('Failed to edit message for active subscription, sending new message', {
+              error,
+            });
+            await ctx.reply(messageText, {
+              reply_markup: keyboard,
+              parse_mode: 'HTML',
+            });
+          }
+        } else {
+          await ctx.reply(messageText, {
+            reply_markup: keyboard,
+            parse_mode: 'HTML',
+          });
+        }
+
+        await this.safeAnswerCallback(ctx);
         return;
       }
 
@@ -1338,6 +1366,45 @@ ${expirationLabel} ${subscriptionEndDate}`;
           text: "Foydalanuvchi ID'sini olishda xatolik yuz berdi.",
           show_alert: true,
         });
+        return;
+      }
+
+      // Check if user has active subscription
+      const subscription = await this.subscriptionService.getSubscription(
+        user._id as string,
+      );
+
+      const subscriptionActive =
+        Boolean(subscription?.isActive) || this.userHasActiveSubscription(user);
+
+      if (subscriptionActive) {
+        const endDateSource =
+          subscription?.subscriptionEnd ?? user.subscriptionEnd ?? null;
+        let formatted = 'aktiv';
+        if (endDateSource) {
+          const endDateObj =
+            endDateSource instanceof Date
+              ? endDateSource
+              : new Date(endDateSource);
+          formatted = `${endDateObj.getDate().toString().padStart(2, '0')}.${(endDateObj.getMonth() + 1)
+            .toString()
+            .padStart(2, '0')}.${endDateObj.getFullYear()}`;
+        }
+
+        // Create a keyboard to go back to main menu
+        const keyboard = new InlineKeyboard()
+          .text('📊 Obuna holati', 'check_status')
+          .row()
+          .text('🔙 Asosiy menyu', 'main_menu');
+
+        const messageText = `Kechirasiz, sizning obunangiz ${formatted} gacha faol. Qayta to'lov talab qilinmaydi.`;
+
+        await ctx.editMessageText(messageText, {
+          reply_markup: keyboard,
+          parse_mode: 'HTML',
+        });
+
+        await this.safeAnswerCallback(ctx);
         return;
       }
 
